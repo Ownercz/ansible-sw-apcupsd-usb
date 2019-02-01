@@ -1,0 +1,1 @@
+[Unit]Description=APC UPS Power Control Daemon for Linux UPS02After=syslog.targetAfter=network-online.target[Service]ExecStartPre=-/bin/rm -f /etc/apcupsd/ups02/powerfailExecStart=/sbin/apcupsd -b -f /etc/apcupsd/ups02/apcupsd.conf[Install]WantedBy=multi-user.target

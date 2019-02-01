@@ -1,0 +1,106 @@
+   - name: install apcupsd
+     yum: name=apcupsd state=latest
+     when: ansible_distribution == 'CentOS' or ansible_distribution == 'Red Hat Enterprise Linux'
+
+   - name: install apcupsd
+     apt: name=apcupsd state=latest
+     when: ansible_distribution == 'Ubuntu' or ansible_distribution == 'Debian'
+
+   - name: apcupsd started and enabled
+     service: name=apcupsd state=stopped enabled=no
+
+   - name: apcupsdups01.service
+     template: src=service01.j2 dest=/usr/lib/systemd/system/apcupsdups01.service owner=root group=root mode=644
+
+   - name: apcupsdups02.service
+     template: src=service02.j2 dest=/usr/lib/systemd/system/apcupsdups02.service owner=root group=root mode=644
+
+#create two new services
+
+   - name: Get UPS01 serial number
+     shell: "udevadm info --attribute-walk --name=/dev/usb/hiddev0 | egrep 'serial' | head -n 1 | cut -c 21- | rev | cut -c4- | rev"
+     register: command_output01
+   - name: Get UPS02 serial number
+     shell: "udevadm info --attribute-walk --name=/dev/usb/hiddev1 | egrep 'serial' | head -n 1 | cut -c 21- | rev | cut -c4- | rev"
+     register: command_output02
+
+   - name: Set UPS Rules
+     template: src=ups.rules.j2 dest=/etc/udev/rules.d/ups.rules owner=root group=root mode=644
+
+     # Old Init.d way
+#   - name: Move default apcupsd script
+#     command: "mv /etc/init.d/apcupsd /etc/init.d/apcupsd.old"
+
+   - lineinfile:
+        path: /etc/udev/rules.d/ups.rules
+        regexp: 'SERIAL01'
+        line: 'KERNEL=="hiddev*", ATTRS{manufacturer}=="American Power Conversion", ATTRS{serial}=="{{ command_output01.stdout }}", OWNER="root", SYMLINK+="usb/ups01"'
+        backup: yes
+   - lineinfile:
+        path: /etc/udev/rules.d/ups.rules
+        regexp: 'SERIAL02'
+        line: 'KERNEL=="hiddev*", ATTRS{manufacturer}=="American Power Conversion", ATTRS{serial}=="{{ command_output02.stdout }}", OWNER="root", SYMLINK+="usb/ups02"'
+        backup: yes
+   - name: Register USB rules
+     shell: "udevadm trigger --verbose --sysname-match=hiddev*"
+
+   - name: Creates directory /etc/apcupsd/ups01
+     file: path=/etc/apcupsd/ups01 state=directory
+   - name: Creates directory /etc/apcupsd/ups02
+     file: path=/etc/apcupsd/ups02 state=directory
+
+   - name: apcupsd01 control
+     template: src=apccontrol-ups01.j2 dest=/etc/apcupsd/ups01/apccontrol owner=root group=root mode=644
+   - name: apcupsd settings
+     template: src=apcupsd.conf-ups01.j2 dest=/etc/apcupsd/ups01/apcupsd.conf owner=root group=root mode=644
+   - name: apcupsd settings
+     template: src=apccontrol-ups01.j2 dest=/etc/apcupsd/ups01/apccontrol owner=root group=root mode=744
+   - name: apcupsd onbattery
+     template: src=onbattery-ups01.j2 dest=/etc/apcupsd/ups01/onbattery owner=root group=root mode=744
+   - name: apcupsd offbattery
+     template: src=offbattery-ups01.j2 dest=/etc/apcupsd/ups01/offbattery owner=root group=root mode=744
+   - name: apcupsd commfailure
+     template: src=commfailure-ups01.j2 dest=/etc/apcupsd/ups01/commfailure owner=root group=root mode=744
+   - name: apcupsd commok
+     template: src=commok-ups01.j2 dest=/etc/apcupsd/ups01/commok owner=root group=root mode=744
+   - name: apcupsd changeme
+     template: src=changeme-ups01.j2 dest=/etc/apcupsd/ups01/changeme owner=root group=root mode=744
+
+   - name: apcupsd02 control
+     template: src=apccontrol-ups02.j2 dest=/etc/apcupsd/ups02/apccontrol owner=root group=root mode=644
+   - name: apcupsd settings
+     template: src=apcupsd.conf-ups02.j2 dest=/etc/apcupsd/ups02/apcupsd.conf owner=root group=root mode=644
+   - name: apcupsd settings
+     template: src=apccontrol-ups02.j2 dest=/etc/apcupsd/ups02/apccontrol owner=root group=root mode=744
+   - name: apcupsd onbattery
+     template: src=onbattery-ups02.j2 dest=/etc/apcupsd/ups02/onbattery owner=root group=root mode=744
+   - name: apcupsd offbattery
+     template: src=offbattery-ups02.j2 dest=/etc/apcupsd/ups02/offbattery owner=root group=root mode=744
+   - name: apcupsd commfailure
+     template: src=commfailure-ups02.j2 dest=/etc/apcupsd/ups02/commfailure owner=root group=root mode=744
+   - name: apcupsd commok
+     template: src=commok-ups02.j2 dest=/etc/apcupsd/ups02/commok owner=root group=root mode=744
+   - name: apcupsd changeme
+     template: src=changeme-ups02.j2 dest=/etc/apcupsd/ups02/changeme owner=root group=root mode=744
+
+
+   # - name: Configure apcupsd
+     # lineinfile:
+         # dest: /etc/default/apcupsd
+         # regexp: ^ISCONFIGURED
+         # line: ISCONFIGURED=yes
+     # become: yes
+
+   - name: apcupsdups01 started and enabled
+     service: name=apcupsdups01 state=started enabled=yes
+
+   - name: apcupsdups02 started and enabled
+     service: name=apcupsdups02 state=started enabled=yes
+
+
+
+#     notify: Restart apcupsd
+#   - name: apcupsd started and enabled
+#     service: name=apcupsd state=started enabled=yes
+#   - name: install apcupsd-cgi
+#     yum: name=apcupsd-cgi state=latest
